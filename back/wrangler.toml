@@ -14,7 +14,7 @@ migrations_dir = "migrations"
 [env.production]
 name = "person-manager-api"
 [env.production.vars]
-FRONT_ORIGIN = "https://manager.test-353.workers.dev"
+FRONT_ORIGIN = "https://person-manager.pages.dev"
 B2_ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
 B2_REGION = "us-east-005"
 B2_BUCKET = "lesa2002"
