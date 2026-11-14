@@ -13,7 +13,11 @@ async function verifyUpload(env:Env,key:string|null,old:string|null,kind:string)
  const upload=await env.DB.prepare('SELECT * FROM uploads WHERE key=? AND kind=?').bind(key,kind).first<{key:string;mime:string;size:number;expires_at:number}>();
  if(!upload || upload.expires_at<Date.now()) throw new ApiError(400,'Envoi expiré ou référence de fichier invalide');
  const store=b2(env);const head=await store.head(key);
- if(!head.ok || Number(head.headers.get('content-length'))!==upload.size || head.headers.get('content-type')?.split(';')[0]!==upload.mime)throw new ApiError(400,'Fichier absent, type ou taille incorrecte');
+ if(!head.ok)throw new ApiError(400,`Fichier absent dans B2 (HTTP ${head.status})`);
+ const contentLength=head.headers.get('content-length');const actualSize=contentLength===null?NaN:Number(contentLength);
+ if(actualSize!==upload.size)throw new ApiError(400,`Taille incorrecte dans B2 (attendue ${upload.size}, reçue ${contentLength??'inconnue'})`);
+ const actualMime=head.headers.get('content-type')?.split(';')[0]??null;
+ if(actualMime!==upload.mime)throw new ApiError(400,`Type incorrect dans B2 (attendu ${upload.mime}, reçu ${actualMime??'inconnu'})`);
  const response=await store.magic(key);if(!response.ok) throw new ApiError(502,'Lecture B2 impossible');
  // Cancel after the first chunk to avoid buffering the entire object if Range is ignored.
  const reader=response.body?.getReader();const first=await reader?.read();await reader?.cancel();
