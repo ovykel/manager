@@ -1,0 +1,24 @@
+{
+  "name": "person-manager-back",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --env production",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:local": "wrangler d1 migrations apply person-manager-local --local",
+    "db:production": "wrangler d1 migrations apply person-manager --remote --env production"
+  },
+  "dependencies": {
+    "aws4fetch": "^1.0.20",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261114.1",
+    "wrangler": "^4.0.0",
+    "typescript": "^5.8.3",
+    "vitest": "^4.0.0"
+  }
+}

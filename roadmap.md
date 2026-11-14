@@ -1,0 +1,4 @@
+- [x] Validate frontend build and backend types/tests (12 tests).
+- [x] Verify local D1 CRUD through desktop/mobile UI.
+- [x] Package clean source archive.
+- [ ] Production B2 and Cloudflare verification: requires owner accounts and credentials.
