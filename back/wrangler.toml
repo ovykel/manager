@@ -3,9 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2026-11-14"
 [vars]
 FRONT_ORIGIN = "http://localhost:5173"
-B2_ENDPOINT = "https://s3.YOUR-REGION.backblazeb2.com"
-B2_REGION = "YOUR-REGION"
-B2_BUCKET = "YOUR-PRIVATE-BUCKET"
+B2_ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
+B2_REGION = "us-east-005"
+B2_BUCKET = "lesa2002"
 [[d1_databases]]
 binding = "DB"
 database_name = "person-manager-local"
@@ -14,14 +14,14 @@ migrations_dir = "migrations"
 [env.production]
 name = "person-manager-api"
 [env.production.vars]
-FRONT_ORIGIN = "https://YOUR-PAGES-PROJECT.pages.dev"
-B2_ENDPOINT = "https://s3.YOUR-REGION.backblazeb2.com"
-B2_REGION = "YOUR-REGION"
-B2_BUCKET = "YOUR-PRIVATE-BUCKET"
+FRONT_ORIGIN = "https://manager.test-353.workers.dev"
+B2_ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
+B2_REGION = "us-east-005"
+B2_BUCKET = "lesa2002"
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "person-manager"
-database_id = "REPLACE-WITH-REMOTE-D1-ID"
+database_id = "d69b72b0-05ab-438c-88c5-e497e7975abf"
 migrations_dir = "migrations"
 [env.production.triggers]
 crons = ["*/30 * * * *"]
