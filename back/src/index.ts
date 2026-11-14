@@ -12,13 +12,15 @@ async function verifyUpload(env:Env,key:string|null,old:string|null,kind:string)
  if(!key || key===old)return;
  const upload=await env.DB.prepare('SELECT * FROM uploads WHERE key=? AND kind=?').bind(key,kind).first<{key:string;mime:string;size:number;expires_at:number}>();
  if(!upload || upload.expires_at<Date.now()) throw new ApiError(400,'Envoi expiré ou référence de fichier invalide');
- const store=b2(env);const head=await store.head(key);
- if(!head.ok)throw new ApiError(400,`Fichier absent dans B2 (HTTP ${head.status})`);
- const contentLength=head.headers.get('content-length');const actualSize=contentLength===null?NaN:Number(contentLength);
- if(actualSize!==upload.size)throw new ApiError(400,`Taille incorrecte dans B2 (attendue ${upload.size}, reçue ${contentLength??'inconnue'})`);
- const actualMime=head.headers.get('content-type')?.split(';')[0]??null;
+ const response=await b2(env).magic(key);
+ if(!response.ok)throw new ApiError(400,`Fichier absent dans B2 (HTTP ${response.status})`);
+ const contentRange=response.headers.get('content-range');
+ const rangeSize=contentRange?.match(/\/(\d+)$/)?.[1];
+ const contentLength=response.headers.get('content-length');
+ const actualSize=Number(response.status===206?rangeSize:contentLength);
+ if(!Number.isFinite(actualSize)||actualSize!==upload.size)throw new ApiError(400,`Taille incorrecte dans B2 (attendue ${upload.size}, reçue ${Number.isFinite(actualSize)?actualSize:'inconnue'})`);
+ const actualMime=response.headers.get('content-type')?.split(';')[0]??null;
  if(actualMime!==upload.mime)throw new ApiError(400,`Type incorrect dans B2 (attendu ${upload.mime}, reçu ${actualMime??'inconnu'})`);
- const response=await store.magic(key);if(!response.ok) throw new ApiError(502,'Lecture B2 impossible');
  // Cancel after the first chunk to avoid buffering the entire object if Range is ignored.
  const reader=response.body?.getReader();const first=await reader?.read();await reader?.cancel();
  if(!first?.value || !matchesMagic(first.value,upload.mime))throw new ApiError(400,'Contenu de fichier incompatible');

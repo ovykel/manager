@@ -11,7 +11,6 @@ export function b2(env:B2Env) {
  const req = await client.sign(url.toString(),{method,headers:mime?{'Content-Type':mime}:undefined,aws:{signQuery:true,allHeaders:true}});
  return req.url;
  },
- async head(key:string) {return client.fetch(objectUrl(key),{method:'HEAD'});},
  async magic(key:string) {return client.fetch(objectUrl(key),{headers:{Range:'bytes=0-15'}});},
  async remove(key:string) {const res=await client.fetch(objectUrl(key),{method:'DELETE'});if(!res.ok && res.status!==404) throw new Error(`Suppression B2 impossible (${res.status})`);}
  };
