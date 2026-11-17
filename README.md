@@ -63,13 +63,16 @@ Le binding D1 local utilise SQLite dans `.wrangler/`. Le UUID zéro de la sectio
 
 ```bash
 # terminal 1, dans back/
-npm run db:local
 npm run dev
 # terminal 2, dans front/
 npm run dev
 ```
 
-Ouvrir `http://localhost:5173`. Le service écoute `http://localhost:8787`. Si Vite change de port, rétablir 5173 ou adapter `FRONT_ORIGIN` et les règles CORS B2.
+`npm run dev` applique d’abord automatiquement toutes les migrations en attente
+à la base D1 locale, puis démarre Wrangler. Si une migration échoue, le Worker
+ne démarre pas. Ouvrir `http://localhost:5173`. Le service écoute
+`http://localhost:8787`. Si Vite change de port, rétablir 5173 ou adapter
+`FRONT_ORIGIN` et les règles CORS B2.
 
 ```bash
 # back/
@@ -128,6 +131,16 @@ npx wrangler pages deploy dist --project-name person-manager --branch main
 Pour utiliser Wrangler installé dans back plutôt qu’un téléchargement ponctuel : `../back/node_modules/.bin/wrangler pages deploy dist --project-name person-manager --branch main`.
 
 Renseigner l’URL Pages dans `FRONT_ORIGIN` production et CORS B2, puis redéployer le Worker. Les previews Pages ont des origines distinctes : elles ne sont pas autorisées par défaut. Après modification d’une variable Vite, reconstruire et redéployer le frontend.
+
+## 8. Déploiements manuels
+
+Aucun déploiement de production n’est déclenché par `git push`. Depuis `back/`,
+`npm run deploy:production` vérifie les types, lance les tests, applique les
+migrations D1 distantes en attente puis déploie le Worker. En cas d’échec, la
+chaîne s’arrête. Pour publier le frontend, construisez-le dans `front/` avec
+`npm run build`, puis envoyez `front/dist` sur Pages avec Wrangler. Les
+migrations locales s’appliquent automatiquement quand vous lancez `npm run dev`
+dans `back/`. Les détails sont dans [guideAaZ.md](./guideAaZ.md).
 
 ## API
 

@@ -197,9 +197,12 @@ Set-Location 'D:\ETUDE\person-manager\back'
 npm run db:production
 ```
 
-La migration crée les tables nécessaires. Réappliquez cette commande après
-l’ajout d’une nouvelle migration au projet. Ne lancez pas une migration locale
-avec l’option `--remote` par erreur.
+La migration crée les tables nécessaires. Pour la première mise en production,
+vous pouvez laisser `npm run deploy:production` (section 7.3) appliquer les
+migrations après les vérifications. `npm run db:production` reste disponible
+pour appliquer uniquement les migrations distantes, par exemple si vous
+souhaitez les exécuter séparément du déploiement. Ne lancez pas une migration
+locale avec l’option `--remote` par erreur.
 
 ## 5. Configurer les variables locales
 
@@ -275,11 +278,14 @@ Ouvrez deux fenêtres PowerShell.
 
 ```powershell
 Set-Location 'D:\ETUDE\person-manager\back'
-npm run db:local
 npm run dev
 ```
 
-Le Worker local écoute normalement sur `http://localhost:8787`.
+`npm run dev` applique automatiquement à D1 locale les migrations qui ne l’ont
+pas encore été, puis démarre Wrangler. S’il n’y a rien de nouveau, il démarre
+normalement ; si une migration échoue, le Worker ne démarre pas. Pour appliquer
+les migrations sans lancer le Worker, utilisez `npm run db:local`. Le Worker
+local écoute normalement sur `http://localhost:8787`.
 
 **Fenêtre 2 — frontend :**
 
@@ -344,14 +350,16 @@ pas ces valeurs dans `[vars]` du fichier TOML.
 
 ### 7.3 Déployer
 
-Après avoir appliqué les migrations D1 et configuré les secrets :
+Pour la première mise en production, après avoir créé D1 et configuré les
+secrets, lancez :
 
 ```powershell
 Set-Location 'D:\ETUDE\person-manager\back'
-npm run deploy
+npm run deploy:production
 ```
 
-Le script exécute `wrangler deploy --env production`. Notez l’URL Worker
+Cette commande vérifie les types, lance les tests backend, applique les
+migrations D1 distantes en attente et déploie le Worker. Notez l’URL Worker
 affichée. L’URL actuellement utilisée par le frontend de ce projet est :
 
 ```text
@@ -422,6 +430,14 @@ Le déploiement Pages par branche peut aussi afficher une adresse de déploiemen
 spécifique. Pour l’application publique, vérifiez l’URL de production du projet
 Pages.
 
+### 8.4 Déploiement manuel
+
+Le projet n’a pas de CI/CD configuré : `git push` ne déploie pas l’application
+et n’applique aucune migration en production. Après avoir vérifié et poussé vos
+changements, exécutez vous-même les commandes de migration et de déploiement de
+la section 11. Les migrations locales sont, elles, appliquées automatiquement
+par `npm run dev`.
+
 ## 9. Relier Pages, Worker et B2
 
 Après avoir obtenu l’URL finale Pages :
@@ -457,53 +473,110 @@ Le nettoyage des envois abandonnés et des anciens fichiers s’exécute en
 production toutes les 30 minutes. Le Worker doit donc conserver son déclencheur
 programmé.
 
-## 11. Mettre à jour le site plus tard
+## 11. Mettre à jour le site et les migrations
 
-### 11.1 Ce que fait (et ne fait pas) `git push`
+### 11.1 Ce qui se passe au démarrage local
 
-Dans la configuration actuelle, pousser du code avec `git push` **ne déploie
-pas** le site et **n’applique pas** les migrations D1. Le dépôt ne contient pas
-de workflow GitHub Actions configuré pour ces opérations. Git enregistre et
-transmet l’historique du code ; les déploiements et migrations se lancent
-séparément avec les commandes Wrangler de ce guide.
+Depuis `back`, `npm run dev` lance d’abord `npm run db:local`. Wrangler compare
+les migrations présentes dans `back\migrations` aux migrations déjà appliquées
+à la base locale, applique celles qui manquent, puis démarre le Worker. Cela ne
+touche jamais D1 de production. Si une migration échoue, le serveur local ne
+démarre pas.
 
-### 11.2 Procédure normale pour une mise à jour
+### 11.2 Ce qui se passe après un push
 
-1. Modifiez le code sur votre ordinateur.
-2. Lancez les vérifications correspondant aux fichiers modifiés (voir 11.3).
-3. Vérifiez les fichiers à envoyer et créez un commit :
+`git push` enregistre vos changements sur le dépôt Git, mais ne déploie rien et
+n’applique pas de migration distante. Vous devez lancer les commandes de
+production manuellement depuis le terminal. Pousser le code est recommandé pour
+garder une copie versionnée, mais cela ne remplace pas le déploiement.
 
-   ```powershell
-   Set-Location 'D:\ETUDE\person-manager'
-   git status --short
-   git add back/src/index.ts front/src/main.tsx
-   git commit -m "Décrire la mise à jour"
-   git push origin main
-   ```
+### 11.3 Procédure complète pour déployer une mise à jour
 
-   Les chemins montrés sont des exemples : remplacez-les par les vrais fichiers
-   modifiés. Ne faites pas `git add .` sans vérifier `git status` : ne poussez
-   jamais `.dev.vars`, `.env.local`, `.env.production` ni aucune clé.
-4. Déployez manuellement le ou les composants modifiés en suivant les cas
-   ci-dessous.
-5. Ouvrez le site en production et vérifiez le comportement mis à jour.
+Suivez cet ordre pour une mise à jour du backend, une nouvelle fonctionnalité
+ou un changement qui peut inclure une migration. Les commandes de production
+doivent être lancées manuellement : `git push` ne lance ni migration ni
+déploiement.
 
-Si le dépôt utilise une autre branche que `main`, remplacez `main` par cette
-branche dans les commandes Git et Pages. Le `git push` peut précéder ou suivre
-un déploiement manuel, mais à lui seul il ne provoque aucun déploiement.
+#### Étape 1 — Modifier et tester en local
 
-### 11.3 Quel déploiement faire selon le changement
+Faites vos changements dans le projet. Si la fonctionnalité change le schéma
+D1, créez une nouvelle migration SQL dans `back\migrations`; ne modifiez pas
+une ancienne migration déjà appliquée.
 
-| Changement | Vérification locale | Action de production |
-|---|---|---|
-| Documentation seulement | Relire le diff | Commit et `git push` seulement. |
-| Frontend seulement | `npm run build` depuis `front` | Après le commit/push, lancer la commande Pages ci-dessous. |
-| Worker/API seulement | `npm run typecheck` et `npm test` depuis `back` | Après le commit/push, lancer `npm run deploy` depuis `back`. |
-| Schéma D1 et Worker/API | Tester la migration en local, puis `npm run typecheck` et `npm test` depuis `back` | Commit/push, appliquer d’abord `npm run db:production`, puis déployer le Worker avec `npm run deploy`. |
-| Frontend et Worker/API | Vérifier le build frontend et les tests/typecheck backend | Déployer le Worker et Pages ; appliquer toute migration D1 avant le Worker qui en dépend. |
-| Secret Worker seulement | Vérifier le nom de secret et l’environnement | Remplacer le secret avec `npx wrangler secret put NOM_DU_SECRET --env production`; aucune valeur secrète ne va dans Git. |
+Ouvrez deux fenêtres PowerShell :
 
-**Déployer Pages après une modification du frontend :**
+**Fenêtre 1 — démarrer l’API locale :**
+
+```powershell
+Set-Location 'D:\ETUDE\person-manager\back'
+npm run dev
+```
+
+Cette commande applique d’abord toutes les migrations en attente à la base D1
+locale, puis démarre le Worker sur `http://localhost:8787`. Elle ne touche
+jamais la base distante. Laissez cette fenêtre ouverte.
+
+**Fenêtre 2 — démarrer le frontend local :**
+
+```powershell
+Set-Location 'D:\ETUDE\person-manager\front'
+npm run dev
+```
+
+Ouvrez `http://localhost:5173`, testez votre changement et corrigez les
+problèmes avant de continuer. Si une migration locale échoue, arrêtez-vous et
+corrigez-la. Ne passez pas à la migration distante tant que le test local n’est
+pas satisfaisant.
+
+#### Étape 2 — Vérifier l’état des fichiers
+
+Depuis la racine du dépôt, vérifiez les fichiers modifiés :
+
+```powershell
+Set-Location 'D:\ETUDE\person-manager'
+git status --short
+```
+
+Si vous utilisez Git, ajoutez uniquement les fichiers du changement, puis
+committez et poussez. Exemple à adapter :
+
+```powershell
+git add back/src/index.ts back/migrations/0002_description_changement.sql front/src/main.tsx
+git commit -m "Ajouter la nouvelle fonctionnalité"
+git push origin main
+```
+
+Le commit et le push servent à sauvegarder/versionner les changements ; ils ne
+déploient rien. N’ajoutez pas `.dev.vars`, `.env.local`, `.env.production` ou
+des secrets. Si vous ne souhaitez pas publier les sources sur Git à ce moment,
+vous pouvez déployer vos fichiers locaux directement avec les commandes
+ci-dessous.
+
+#### Étape 3 — Vérifier et déployer le backend
+
+Depuis `back`, lancez la commande combinée :
+
+```powershell
+Set-Location 'D:\ETUDE\person-manager\back'
+npm run deploy:production
+```
+
+Elle effectue ces opérations dans l’ordre :
+
+1. `npm run typecheck` vérifie les types TypeScript ;
+2. `npm test` lance les tests backend ;
+3. `npm run db:production` applique à D1 distante les migrations en attente ;
+4. `npm run deploy` publie le Worker de production.
+
+Les étapes sont reliées par `&&` : dès qu’une commande échoue, les suivantes ne
+s’exécutent pas. Une erreur de typecheck ou de test arrête donc la commande
+avant tout changement distant. Si aucune migration n’est en attente, Wrangler
+l’indique et continue avec le déploiement Worker.
+
+#### Étape 4 — Déployer le frontend si celui-ci a changé
+
+Si vous avez modifié `front`, ou si vous avez changé `VITE_API_URL`, reconstruisez
+et publiez Pages après le Worker :
 
 ```powershell
 Set-Location 'D:\ETUDE\person-manager\front'
@@ -513,81 +586,105 @@ Set-Location '..\back'
 npx wrangler pages deploy ..\front\dist --project-name person-manager --branch main
 ```
 
-**Déployer le Worker après une modification de l’API :**
+Le build utilise `front\.env.production`. Cette variable `VITE_API_URL` est
+publique et est incorporée au frontend pendant le build ; elle ne doit contenir
+aucun jeton ni secret. Si vous changez la configuration Pages/Worker/CORS, voir
+la section 9.
 
-```powershell
-Set-Location 'D:\ETUDE\person-manager\back'
-npm run typecheck
-npm test
-npm run deploy
-```
+#### Étape 5 — Vérifier la production
 
-Un changement de configuration de build `VITE_*` doit être présent dans
-`front\.env.production` avant `npm run build`. Puisque Vite incorpore cette
-valeur au frontend, il faut reconstruire et redéployer Pages.
+Ouvrez `https://person-manager.pages.dev`, reconnectez-vous avec le code d’accès
+de production, puis vérifiez la fonctionnalité modifiée. Si des fichiers sont
+concernés, testez aussi leur envoi, leur affichage et leur téléchargement.
 
-### 11.4 Procédure détaillée si une migration D1 est nécessaire
+**Raccourcis selon le type de changement :**
 
-Une migration est nécessaire lorsqu’une fonctionnalité modifie la structure de
-la base (par exemple une nouvelle colonne ou table). Modifier uniquement le
-code API ou le frontend ne lance pas et ne crée pas une migration.
+- **Backend/API seulement :** exécutez `npm run deploy:production` depuis
+  `back`.
+- **Frontend seulement :** exécutez `npm run build` depuis `front`, puis la
+  commande Pages ci-dessus. Il n’est pas nécessaire de migrer D1.
+- **Backend et frontend :** exécutez d’abord `npm run deploy:production`, puis
+  construisez et déployez Pages.
+- **Nouvelle migration D1 :** testez-la localement avec `npm run dev`, puis
+  `npm run deploy:production` l’applique en production avant de déployer le
+  Worker.
+
+Si vous changez seulement des fichiers de documentation, aucune commande de
+déploiement n’est nécessaire.
+
+### 11.4 Procédure pour une nouvelle migration D1
+
+Une migration est nécessaire quand une fonctionnalité change le schéma de la
+base (nouvelle table, colonne, index, etc.). Un changement de code seul ne crée
+pas de migration.
 
 1. Ajoutez un nouveau fichier SQL numéroté dans `back\migrations`, après le
    dernier existant, par exemple `0002_description_changement.sql`. Ne modifiez
    pas une ancienne migration déjà appliquée en production.
-2. Testez la migration et l’application localement :
+2. Depuis `back`, exécutez `npm run dev`. Les migrations locales en attente
+   s’appliquent automatiquement au démarrage. Testez ensuite la fonctionnalité
+   avec le frontend local. Vous pouvez aussi lancer uniquement
+   `npm run db:local` pour appliquer les migrations sans démarrer le Worker.
+3. Exécutez les tests et contrôlez les fichiers à envoyer :
 
    ```powershell
    Set-Location 'D:\ETUDE\person-manager\back'
-   npm run db:local
-   npm run dev
-   ```
+   npm run typecheck
+   npm test
 
-   Vérifiez la fonctionnalité avec l’application locale. La base locale n’est
-   pas la base de production.
-3. Committez et poussez le code et le fichier de migration :
-
-   ```powershell
    Set-Location 'D:\ETUDE\person-manager'
    git status --short
+   ```
+
+4. Committez la migration et le code associé, puis poussez-les sur votre
+   branche si vous utilisez Git :
+
+   ```powershell
    git add back/migrations/0002_description_changement.sql back/src/index.ts
    git commit -m "Ajouter la migration et la fonctionnalité"
    git push origin main
    ```
 
-   Adaptez les deux chemins à la migration et au code réellement modifiés. Si
-   d’autres changements sans rapport sont présents, ne les ajoutez pas au commit.
-4. Appliquez la migration à la base distante :
+   Adaptez les chemins aux fichiers réellement modifiés et n’ajoutez pas de
+   changements sans rapport au commit.
+5. Après avoir confirmé que le code et la migration sont ceux que vous voulez
+   mettre en production, lancez la commande combinée depuis `back` :
 
    ```powershell
    Set-Location 'D:\ETUDE\person-manager\back'
-   npm run db:production
+   npm run deploy:production
    ```
 
-5. Si la commande échoue, **arrêtez-vous** : ne déployez pas le Worker qui
-   dépend de cette migration. Vérifiez l’erreur et l’état de la base avant toute
-   nouvelle tentative.
-6. Après le succès de la migration, déployez le Worker :
+6. La commande vérifie les types et les tests avant de toucher la production.
+   Si ces contrôles échouent, elle s’arrête avant la migration. Après leur
+   succès, elle applique les migrations distantes, puis déploie le Worker. Si le
+   frontend a changé, construisez-le puis publiez Pages comme indiqué à
+   la section 11.3. Vérifiez enfin le résultat sur le site en production.
 
-   ```powershell
-   npm run typecheck
-   npm test
-   npm run deploy
-   ```
+Si une étape échoue, `&&` arrête la chaîne et les étapes suivantes ne sont pas
+lancées. Les contrôles de types/tests ne modifient pas les fichiers du projet.
+Important : si la migration distante réussit mais que le déploiement Worker
+échoue ensuite, le schéma D1 reste migré ; ces opérations de production ne sont
+pas une transaction annulable. Vérifiez l’erreur avant toute nouvelle tentative.
+Si une migration elle-même échoue, vérifiez l’état de D1 avant de la relancer :
+les migrations précédentes de la même commande peuvent déjà avoir réussi.
 
-7. Déployez Pages aussi si le frontend a changé, puis testez la fonctionnalité
-   sur `https://person-manager.pages.dev`.
+Une migration distante modifie réellement les données. Faites une sauvegarde
+adaptée avant tout changement destructif. Préférez les migrations compatibles
+avec l’ancienne version : ajoutez d’abord une colonne/table, déployez le code
+qui l’utilise, migrez les données si nécessaire, puis supprimez l’ancien schéma
+lors d’une mise à jour ultérieure. Évitez de supprimer ou renommer directement
+une colonne utilisée par la version déployée.
 
-`npm run db:production` applique les migrations distantes en attente. Il faut
-lancer cette commande explicitement : un `git push` ou un déploiement Worker ne
-l’exécute pas automatiquement. Une migration distante modifie réellement les
-données ; faites une sauvegarde adaptée avant un changement destructif.
+### 11.5 Rappels de déploiement
 
-Pour limiter les interruptions, préférez des migrations compatibles avec
-l’ancienne version : ajoutez d’abord une colonne ou table, déployez le code qui
-l’utilise, migrez les données si besoin, puis supprimez l’ancien schéma lors
-d’une mise à jour ultérieure. Évitez de supprimer ou renommer directement une
-colonne encore utilisée par la version actuellement déployée.
+- `npm run deploy:production` exécute dans l’ordre les contrôles de types,
+  les tests, `npm run db:production` et `npm run deploy`.
+- Le Worker et Pages ne se déploient que lorsque vous lancez leurs commandes
+  Wrangler. Un commit ou un push Git ne déclenche aucune action Cloudflare.
+- Les secrets runtime `API_TOKEN`, `B2_KEY_ID` et `B2_APPLICATION_KEY` restent
+  configurés dans Cloudflare Worker. Ne les mettez pas dans Git ou dans le
+  frontend.
 
 ## 12. Problèmes fréquents
 

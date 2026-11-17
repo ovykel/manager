@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "npm run db:local && wrangler dev",
     "deploy": "wrangler deploy --env production",
+    "deploy:production": "npm run typecheck && npm test && npm run db:production && npm run deploy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:local": "wrangler d1 migrations apply person-manager-local --local",
